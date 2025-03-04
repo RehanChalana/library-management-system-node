@@ -16,6 +16,8 @@ app.get('/', async (req, res) => {
     }
 })
 
+// /books rest api
+
 app.get('/books', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM books')
@@ -60,6 +62,31 @@ app.post('/books', async (req, res) => {
     }
 })
 
+app.put('/books/:id', async (req, res) => {
+    try {
+        const { id } = req.params
+        const { title, isbn, author, publication_date, borrowed } = req.body
+
+        const check = await pool.query(
+            'SELECT * FROM books WHERE book_id = $1', [id]
+        )
+
+        if(check.rows.length == 0) {
+            res.status(404).send(`Book with id: ${id} could not be found.`)
+        }
+
+        const result = await pool.query(
+            'UPDATE books SET title = $1, isbn = $2, author = $3, publication_date = $4, borrowed = $5 WHERE book_id = $6 RETURNING *', 
+            [title, isbn, author, publication_date, borrowed, id]
+        )
+
+        res.send(result.rows[0])
+    } catch(err) {
+        console.error(err)
+        res.status(500).send('Server Error')
+    }
+})
+
 app.delete('/books/:id', async (req, res) => {
     try {
         const { id } = req.params
@@ -77,6 +104,77 @@ app.delete('/books/:id', async (req, res) => {
         )
 
         res.status(200).send(`Book with id: ${id} has been deleted.`)
+    } catch(err) {
+        console.error(err)
+        res.status(500).send('Server Error')
+    }
+})
+
+// users rest api
+
+app.get('/users', async (req, res) => {
+    try {
+        const result = await pool.query(
+            'SELECT * FROM users'
+        )
+        res.send(result.rows)
+    } catch(err) {
+        console.error(err)
+        res.status(500).send('Server Error')
+    }
+})
+
+app.get('/users/:id', async (req, res) => {
+    try {
+        const { id } = req.params
+
+        const result = await pool.query(
+            'SELECT * FROM users where user_id = $1', [id]
+        )
+
+        if(result.rows.length == 0) {
+            res.status(404).send(`User with id: ${id} could not be found.`)
+        }
+
+        res.send(result.rows[0])
+    } catch (err) {
+        console.error(err)
+        res.status(500).send('Server Error')
+    }
+})
+
+app.post('/users', async (req, res) => {
+    try {
+        const {username, email, phone_no} = req.body
+        const result = await pool.query(
+            'INSERT INTO users (username, email, phone_no) VALUES ($1, $2, $3) RETURNING *',
+            [username, email, phone_no]
+        )
+        res.send(result.rows[0])
+
+    } catch(err) {
+        console.error(err)
+        res.status(500).send('Server Error')
+    }
+})
+
+app.delete('/users/:id', async (req, res) => {
+    try {
+        const { id } = req.params
+
+        const check = await pool.query(
+            'SELECT * FROM users where user_id = $1', [id]
+        )
+
+        if(check.rows.length == 0) {
+            res.status(404).send(`User with id: ${id} could not be found.`)
+        }
+
+        const result = await pool.query(
+            'DELETE FROM users where user_id = $1', [id]
+        )
+
+        res.send(`User with id: ${id} has been deleted.`)
     } catch(err) {
         console.error(err)
         res.status(500).send('Server Error')
