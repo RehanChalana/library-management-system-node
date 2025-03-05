@@ -20,7 +20,7 @@ app.get('/', async (req, res) => {
 
 app.get('/books', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM books')
+        const result = await pool.query('SELECT book_id, title, isbn, author, TO_CHAR(publication_date, \'YYYY-MM-DD\') AS publication_date, borrowed FROM books')
         res.send(result.rows) 
     } catch (err) {
         console.error(err)
@@ -32,12 +32,14 @@ app.get('/books/:id', async (req, res) => {
     const { id } = req.params
     try {
         const result = await pool.query(
-            'SELECT * FROM books where book_id = $1', [id]
+            'SELECT book_id, title, isbn, author, TO_CHAR(publication_date, \'YYYY-MM-DD\') AS publication_date, borrowed FROM books WHERE book_id = $1', [id]
         )
 
         if(result.rows.length == 0) {
             return res.status(404).send(`Book with id: ${id} could not be found.`)
         }
+
+        
 
         res.send(result.rows[0])
     } catch(err) {
@@ -51,7 +53,7 @@ app.post('/books', async (req, res) => {
         const { title, isbn, author, publication_date, borrowed } = req.body
         
         const result = await pool.query(
-            'INSERT INTO books (title, isbn, author, publication_date, borrowed) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+            'INSERT INTO books (title, isbn, author, publication_date, borrowed) VALUES ($1, $2, $3, $4::DATE, $5) RETURNING *',
             [title, isbn, author, publication_date, borrowed]
         )
 
