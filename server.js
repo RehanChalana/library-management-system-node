@@ -1,11 +1,46 @@
 import express from "express"
 import pool from "./db.js"
 import bodyParser from "body-parser"
+import swaggerJsDoc from "swagger-jsdoc"
+import swaggerUi from "swagger-ui-express"
+import cors from "cors"
 
 const app = express()
 
 app.use(bodyParser.json())
+app.use(cors())
 
+// swagger configuration
+
+const swaggerOptions = {
+    definition: {
+        openapi: "3.0.0",
+        info: {
+            title: "Library Management System API",
+            version: "2.0.0",
+            description: "API documentation for the Library Management System",
+        },
+        servers: [
+            {
+                url: "http://localhost:3001",
+            },
+        ],
+    },
+    apis: ["./server.js"]
+}
+
+const swaggerDocs = swaggerJsDoc(swaggerOptions)
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs))
+
+/**
+ * @swagger
+ * /:
+ *   get:
+ *     summary: Get the current server time
+ *     responses:
+ *       200:
+ *         description: Current server time
+ */
 app.get('/', async (req, res) => {
     try {
         const result = await pool.query('SELECT NOW()')
@@ -18,6 +53,15 @@ app.get('/', async (req, res) => {
 
 // /books rest api
 
+/**
+ * @swagger
+ * /books:
+ *   get:
+ *     summary: Get all books
+ *     responses:
+ *       200:
+ *         description: List of books
+ */
 app.get('/books', async (req, res) => {
     try {
         const result = await pool.query('SELECT book_id, title, isbn, author, TO_CHAR(publication_date, \'YYYY-MM-DD\') AS publication_date, borrowed FROM books')
@@ -27,6 +71,26 @@ app.get('/books', async (req, res) => {
         res.status(500).send('Server Error')
     }
 })
+
+/**
+ * @swagger
+ * /books/{id}:
+ *   get:
+ *     summary: Get a book by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The book ID
+ *     responses:
+ *       200:
+ *         description: A single book
+ *       404:
+ *         description: Book not found
+ */
+
 
 app.get('/books/:id', async (req, res) => {
     const { id } = req.params
@@ -48,6 +112,33 @@ app.get('/books/:id', async (req, res) => {
     }
 })
 
+/**
+ * @swagger
+ * /books:
+ *   post:
+ *     summary: Add a new book
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               isbn:
+ *                 type: string
+ *               author:
+ *                 type: string
+ *               publication_date:
+ *                 type: string
+ *                 format: date
+ *               borrowed:
+ *                 type: boolean
+ *     responses:
+ *       201:
+ *         description: Book created
+ */
 app.post('/books', async (req, res) => {
     try {
         const { title, isbn, author, publication_date, borrowed } = req.body
@@ -64,6 +155,42 @@ app.post('/books', async (req, res) => {
     }
 })
 
+/**
+ * @swagger
+ * /books/{id}:
+ *   put:
+ *     summary: Update a book by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The book ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               isbn:
+ *                 type: string
+ *               author:
+ *                 type: string
+ *               publication_date:
+ *                 type: string
+ *                 format: date
+ *               borrowed:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Book updated
+ *       404:
+ *         description: Book not found
+ */
 app.put('/books/:id', async (req, res) => {
     try {
         const { id } = req.params
@@ -89,6 +216,24 @@ app.put('/books/:id', async (req, res) => {
     }
 })
 
+/**
+ * @swagger
+ * /books/{id}:
+ *   delete:
+ *     summary: Delete a book by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The book ID
+ *     responses:
+ *       200:
+ *         description: Book deleted
+ *       404:
+ *         description: Book not found
+ */
 app.delete('/books/:id', async (req, res) => {
     try {
         const { id } = req.params
@@ -113,7 +258,15 @@ app.delete('/books/:id', async (req, res) => {
 })
 
 // users rest api
-
+/**
+ * @swagger
+ * /users:
+ *   get:
+ *     summary: Get all users
+ *     responses:
+ *       200:
+ *         description: List of users
+ */
 app.get('/users', async (req, res) => {
     try {
         const result = await pool.query(
@@ -126,6 +279,24 @@ app.get('/users', async (req, res) => {
     }
 })
 
+/**
+ * @swagger
+ * /users/{id}:
+ *   get:
+ *     summary: Get a user by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The user ID
+ *     responses:
+ *       200:
+ *         description: A single user
+ *       404:
+ *         description: User not found
+ */
 app.get('/users/:id', async (req, res) => {
     try {
         const { id } = req.params
@@ -145,6 +316,28 @@ app.get('/users/:id', async (req, res) => {
     }
 })
 
+/**
+ * @swagger
+ * /users:
+ *   post:
+ *     summary: Add a new user
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               phone_no:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: User created
+ */
 
 app.post('/users', async (req, res) => {
     try {
@@ -161,6 +354,37 @@ app.post('/users', async (req, res) => {
     }
 })
 
+/**
+ * @swagger
+ * /users/{id}:
+ *   put:
+ *     summary: Update a user by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The user ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               phone_no:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: User updated
+ *       404:
+ *         description: User not found
+ */
 app.put('/users/:id', async (req, res) => {
     try {
         const { id } = req.params
@@ -188,6 +412,24 @@ app.put('/users/:id', async (req, res) => {
     
 })
 
+/**
+ * @swagger
+ * /users/{id}:
+ *   delete:
+ *     summary: Delete a user by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The user ID
+ *     responses:
+ *       200:
+ *         description: User deleted
+ *       404:
+ *         description: User not found
+ */
 app.delete('/users/:id', async (req, res) => {
     try {
         const { id } = req.params
@@ -213,7 +455,15 @@ app.delete('/users/:id', async (req, res) => {
 
 
 // /membership endpoint
-
+/**
+ * @swagger
+ * /membership:
+ *   get:
+ *     summary: Get all memberships
+ *     responses:
+ *       200:
+ *         description: List of memberships
+ */
 app.get('/membership', async (req, res) => {
     try {
         const result = await pool.query(
@@ -227,6 +477,24 @@ app.get('/membership', async (req, res) => {
     }
 })
 
+/**
+ * @swagger
+ * /membership/{id}:
+ *   get:
+ *     summary: Get a membership by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The membership ID
+ *     responses:
+ *       200:
+ *         description: A single membership
+ *       404:
+ *         description: Membership not found
+ */
 app.get('/membership/:id', async (req, res) => {
     try {
         const { id } = req.params
@@ -244,6 +512,29 @@ app.get('/membership/:id', async (req, res) => {
         res.status(500).send('Server Error')
     }
 })
+
+/**
+ * @swagger
+ * /membership:
+ *   post:
+ *     summary: Add a new membership
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               user_id:
+ *                 type: integer
+ *               book_id:
+ *                 type: integer
+ *     responses:
+ *       201:
+ *         description: Membership created
+ *       404:
+ *         description: User or book not found
+ */
 
 app.post('/membership', async (req, res) => {
     try {
@@ -276,6 +567,37 @@ app.post('/membership', async (req, res) => {
         res.status(500).send()
     }
 })
+
+
+/**
+ * @swagger
+ * /membership/{id}:
+ *   put:
+ *     summary: Update a membership by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The membership ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               user_id:
+ *                 type: integer
+ *               book_id:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Membership updated
+ *       404:
+ *         description: Membership, user, or book not found
+ */
 
 app.put('/membership/:id', async(req,res) => {
 
@@ -322,6 +644,25 @@ app.put('/membership/:id', async(req,res) => {
 
 })
 
+
+/**
+ * @swagger
+ * /membership/{id}:
+ *   delete:
+ *     summary: Delete a membership by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The membership ID
+ *     responses:
+ *       200:
+ *         description: Membership deleted
+ *       404:
+ *         description: Membership not found
+ */
 app.delete('/membership/:id', async (req, res) => {
     try {
         const { id } = req.params
