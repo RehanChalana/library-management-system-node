@@ -64,7 +64,7 @@ app.get('/', async (req, res) => {
  */
 app.get('/books', async (req, res) => {
     try {
-        const result = await pool.query('SELECT book_id, title, isbn, author, TO_CHAR(publication_date, \'YYYY-MM-DD\') AS publication_date, borrowed FROM books')
+        const result = await pool.query('SELECT book_id, title, isbn, author, TO_CHAR(publication_date, \'YYYY-MM-DD\') AS publication_date, borrowed, return_date FROM books')
         res.send(result.rows) 
     } catch (err) {
         console.error(err)
@@ -96,7 +96,7 @@ app.get('/books/:id', async (req, res) => {
     const { id } = req.params
     try {
         const result = await pool.query(
-            'SELECT book_id, title, isbn, author, TO_CHAR(publication_date, \'YYYY-MM-DD\') AS publication_date, borrowed FROM books WHERE book_id = $1', [id]
+            'SELECT book_id, title, isbn, author, TO_CHAR(publication_date, \'YYYY-MM-DD\') AS publication_date, borrowed, TO_CHAR(return_date, \'YYYY-MM-DD\') AS return_date FROM books WHERE book_id = $1', [id]
         )
 
         if(result.rows.length == 0) {
@@ -144,7 +144,7 @@ app.post('/books', async (req, res) => {
         const { title, isbn, author, publication_date, borrowed } = req.body
         
         const result = await pool.query(
-            'INSERT INTO books (title, isbn, author, publication_date, borrowed) VALUES ($1, $2, $3, $4::DATE, $5) RETURNING *',
+            'INSERT INTO books (title, isbn, author, publication_date, borrowed, return_date) VALUES ($1, $2, $3, $4::DATE, $5, $6::DATE) RETURNING *',
             [title, isbn, author, publication_date, borrowed]
         )
 
@@ -194,7 +194,7 @@ app.post('/books', async (req, res) => {
 app.put('/books/:id', async (req, res) => {
     try {
         const { id } = req.params
-        const { title, isbn, author, publication_date, borrowed } = req.body
+        const { title, isbn, author, publication_date, borrowed, return_date } = req.body
 
         const check = await pool.query(
             'SELECT * FROM books WHERE book_id = $1', [id]
@@ -205,8 +205,8 @@ app.put('/books/:id', async (req, res) => {
         }
 
         const result = await pool.query(
-            'UPDATE books SET title = $1, isbn = $2, author = $3, publication_date = $4, borrowed = $5 WHERE book_id = $6 RETURNING *', 
-            [title, isbn, author, publication_date, borrowed, id]
+            'UPDATE books SET title = $1, isbn = $2, author = $3, publication_date = $4, borrowed = $5, return_date = $6 WHERE book_id = $7 RETURNING *', 
+            [title, isbn, author, publication_date, borrowed, return_date, id]
         )
 
         res.send(result.rows[0])
@@ -686,6 +686,184 @@ app.delete('/membership/:id', async (req, res) => {
         res.status(500).send('Server Error')
     }
 })
+
+// /request endpoint
+
+/**
+ * @swagger
+ * /request_books:
+ *   get:
+ *     summary: Get all requested books
+ *     responses:
+ *       200:
+ *         description: List of requested books
+ */
+app.get('/request_books', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM request_books');
+        res.send(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Server Error');
+    }
+});
+
+/**
+ * @swagger
+ * /request_books/{id}:
+ *   get:
+ *     summary: Get a requested book by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The requested book ID
+ *     responses:
+ *       200:
+ *         description: A single requested book
+ *       404:
+ *         description: Requested book not found
+ */
+app.get('/request_books/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await pool.query('SELECT * FROM request_books WHERE book_id = $1', [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).send(`Requested book with id: ${id} could not be found.`);
+        }
+        res.send(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Server Error');
+    }
+});
+
+/**
+ * @swagger
+ * /request_books:
+ *   post:
+ *     summary: Add a new requested book
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               isbn:
+ *                 type: string
+ *               author:
+ *                 type: string
+ *               publication_date:
+ *                 type: string
+ *                 format: date
+ *     responses:
+ *       201:
+ *         description: Requested book created
+ */
+app.post('/request_books', async (req, res) => {
+    const { title, isbn, author, publication_date } = req.body;
+    try {
+        const result = await pool.query(
+            'INSERT INTO request_books (title, isbn, author, publication_date) VALUES ($1, $2, $3, $4::DATE) RETURNING *',
+            [title, isbn, author, publication_date]
+        );
+        res.status(201).send(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Server Error');
+    }
+});
+
+/**
+ * @swagger
+ * /request_books/{id}:
+ *   put:
+ *     summary: Update a requested book by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The requested book ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               isbn:
+ *                 type: string
+ *               author:
+ *                 type: string
+ *               publication_date:
+ *                 type: string
+ *                 format: date
+ *     responses:
+ *       200:
+ *         description: Requested book updated
+ *       404:
+ *         description: Requested book not found
+ */
+app.put('/request_books/:id', async (req, res) => {
+    const { id } = req.params;
+    const { title, isbn, author, publication_date } = req.body;
+    try {
+        const check = await pool.query('SELECT * FROM request_books WHERE book_id = $1', [id]);
+        if (check.rows.length === 0) {
+            return res.status(404).send(`Requested book with id: ${id} could not be found.`);
+        }
+        const result = await pool.query(
+            'UPDATE request_books SET title = $1, isbn = $2, author = $3, publication_date = $4::DATE WHERE book_id = $5 RETURNING *',
+            [title, isbn, author, publication_date, id]
+        );
+        res.send(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Server Error');
+    }
+});
+
+/**
+ * @swagger
+ * /request_books/{id}:
+ *   delete:
+ *     summary: Delete a requested book by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The requested book ID
+ *     responses:
+ *       200:
+ *         description: Requested book deleted
+ *       404:
+ *         description: Requested book not found
+ */
+app.delete('/request_books/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const check = await pool.query('SELECT * FROM request_books WHERE book_id = $1', [id]);
+        if (check.rows.length === 0) {
+            return res.status(404).send(`Requested book with id: ${id} could not be found.`);
+        }
+        await pool.query('DELETE FROM request_books WHERE book_id = $1', [id]);
+        res.status(200).send(`Requested book with id: ${id} has been deleted.`);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Server Error');
+    }
+});
 
 
 
